@@ -169,13 +169,13 @@ class Lotto():
 
     def freq_year(self):
         # make year list
-        year_list = np.unique([df['drwNoDate'][i].year for i in df['drwNoDate'].index])
-        df_concat = pd.DataFrame()
         df_year = self.df[:]
+        year_list = np.unique([df_year['drwNoDate'][i].year for i in df_year['drwNoDate'].index])
+        df_concat = pd.DataFrame()
         modes_year = {}
 
         for y in year_list:
-            for i in df['drwNoDate'].index:
+            for i in df_year['drwNoDate'].index:
                 if df_year['drwNoDate'][i].year == y:
                     df_concat = pd.concat((df_concat, df_year.iloc[i:i+1]))
 

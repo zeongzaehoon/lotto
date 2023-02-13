@@ -8,12 +8,15 @@ import time
 
 import os.path
 
-# 1회차부터 수집해 returnValue가 False일 때까지 수집해 DF으로 만들고 CSV로 저장
+import LSTM
+
+
+
 class Lotto():
     def __init__(self, today):
         self.today = today
 
-
+    # 1회차부터 수집해 returnValue가 False일 때까지 수집해 DF으로 만들고 CSV로 저장
     def get_data():
         csv_path = "data/data.csv"
         cnt = 1
@@ -39,7 +42,7 @@ class Lotto():
         datas.to_csv(csv_path)
 
 
-    # 매주 월요일, 전 주 결과를 추가해 분석하고 당첨번호를 예측해야함
+    # csv파일에 최신 결과까지 update
     def add_data():
         # 지정된 경로에 csv파일이 있다면?
         csv_path = "data/data.csv"
@@ -79,6 +82,7 @@ class Lotto():
         pass
 
 
+    # 자주 출몰하는 번호(역대)
     def freq(self):
         modes = {}
         one_six = self.df.iloc[:, 1:-1]
@@ -94,6 +98,7 @@ class Lotto():
         print(f"1회부터 지금까지 가장 많이 나온 번호 : {modes}")
 
 
+    # 계절별로 자주 출몰하는 번호(역대)
     def freq_season(self):
         df_season = self.df[:]
         spring = [3, 4, 5]
@@ -141,6 +146,7 @@ class Lotto():
             print(f"{s} : {modes}")
 
 
+    # 월별 자주 출몰하는 번호(역대)
     def freq_month(self):
         df_concat = pd.DataFrame()
         df_month = self.df[:]
@@ -167,6 +173,7 @@ class Lotto():
             print(f"{m} : {modes}")
 
 
+    # 연도별 자주 출몰하는 번호
     def freq_year(self):
         # make year list
         df_year = self.df[:]
@@ -196,6 +203,7 @@ class Lotto():
             print(f"{y} : {modes}")
     
 
+    # 번호 선택 시 함께 당첨되는 빈도가 높은 번호
     def freq_choice(self):
         print("freq_choice ::: 1부터 45 중 번호 하나를 입력해주세요!")
         choice = int(input())
@@ -228,6 +236,7 @@ class Lotto():
         print(df_concat[-20:])
     
 
+    # 5주, 10주, 15주간 출몰하지 않은 당첨번호
     def no_exist(self):
         number = [i for i in range(1, 46, 1)]
 
@@ -241,5 +250,6 @@ class Lotto():
                     pass
                 else:
                     no_list.append(n)
-            
+            print(f" ")
+            print(f" ")
             print(f"{w}주간 나오지 않은 번호 : {no_list}")

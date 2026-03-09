@@ -125,15 +125,21 @@ def load_torch_model(model_path: str) -> tuple[torch.nn.Module, dict]:
     ModelClass = TORCH_MODEL_CLASSES[model_type]
     if model_type == "transformer":
         model = ModelClass(
+            input_size=config.get("input_size", 7),
             d_model=config["d_model"],
             nhead=config["nhead"],
             num_layers=config["num_layers"],
+            output_size=config.get("output_size", 45),
+            dropout=config.get("dropout", 0.3),
         )
     else:
         # LSTM, GRU는 같은 파라미터 구조
         model = ModelClass(
+            input_size=config.get("input_size", 7),
             hidden_size=config["hidden_size"],
             num_layers=config["num_layers"],
+            output_size=config.get("output_size", 45),
+            dropout=config.get("dropout", 0.3),
         )
 
     # ──────────────────────────────────────────────────

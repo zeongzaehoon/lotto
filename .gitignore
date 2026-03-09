@@ -23,6 +23,7 @@ airflow/plugins/
 
 # ML
 ml/saved_models/*.pt
+ml/saved_models/*.pkl
 
 # Environment
 .env

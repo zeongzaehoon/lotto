@@ -10,7 +10,6 @@ import type {
   ModelsResponse,
   ModelType,
   CollectionStatus,
-  CollectionProgress,
 } from '../types/lotto';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -76,51 +75,20 @@ export const fetchAvailableModels = async (): Promise<ModelsResponse> => {
   return data;
 };
 
-// 데이터 수집
+// 데이터 수집 (Airflow DAG 연동)
 export const fetchCollectionStatus = async (): Promise<CollectionStatus> => {
   const { data } = await api.get('/collection/status');
   return data;
 };
 
-export const startCollection = (
-  mode: 'all' | 'latest',
-  onProgress: (data: CollectionProgress) => void,
-  onError: (error: string) => void,
-): (() => void) => {
-  const controller = new AbortController();
-  const url = `${API_BASE}/api/collection/${mode}`;
+export const triggerDag = async (dagId: string) => {
+  const { data } = await api.post(`/collection/trigger/${dagId}`);
+  return data;
+};
 
-  fetch(url, { method: 'POST', signal: controller.signal })
-    .then(async (response) => {
-      if (!response.ok || !response.body) {
-        onError('수집 요청에 실패했습니다.');
-        return;
-      }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-          const match = line.match(/^data: (.+)$/m);
-          if (match) {
-            onProgress(JSON.parse(match[1]));
-          }
-        }
-      }
-    })
-    .catch((err) => {
-      if (err.name !== 'AbortError') {
-        onError(err.message || '수집 중 오류 발생');
-      }
-    });
-
-  return () => controller.abort();
+export const fetchDagStatus = async (dagId: string) => {
+  const { data } = await api.get(`/collection/dag-status/${dagId}`);
+  return data;
 };
 
 export const trainModel = async (
@@ -128,12 +96,14 @@ export const trainModel = async (
   epochs = 100,
   learningRate = 0.001,
   sequenceLength = 10,
+  sessionId?: string,
 ): Promise<TrainResponse> => {
   const { data } = await api.post('/train', {
     model_type: modelType,
     epochs,
     learning_rate: learningRate,
     sequence_length: sequenceLength,
+    session_id: sessionId || undefined,
   });
   return data;
 };

@@ -171,6 +171,7 @@ def _train_torch(
     batch_size: int,
     hidden_size: int,
     num_layers: int,
+    _log=print,
 ) -> dict:
     """
     PyTorch 모델 학습 (LSTM, GRU, Transformer)
@@ -189,7 +190,7 @@ def _train_torch(
 
     # ── 데이터 준비 ──────────────────────────────────────
     X, y = prepare_torch_dataset(draws, seq_length)
-    print(f"[{model_type}] Device: {device} | 데이터셋: X={X.shape}, y={y.shape}")
+    _log(f"[{model_type}] Device: {device} | 데이터셋: X={X.shape}, y={y.shape}")
 
     # ──────────────────────────────────────────────────────
     # Train/Validation 분할 (80/20):
@@ -378,7 +379,7 @@ def _train_torch(
                     pass
 
             if epoch % 10 == 0 or epoch == 1:
-                print(
+                _log(
                     f"[{model_type}] Epoch {epoch:3d}/{epochs} | "
                     f"Train: {train_loss:.6f} | Val: {val_loss:.6f} | "
                     f"LR: {optimizer.param_groups[0]['lr']:.6f}"
@@ -450,7 +451,7 @@ def _train_torch(
         "total_draws": len(draws),
     }, model_path)
 
-    print(f"[{model_type}] 저장: {model_path} | Best Val Loss: {best_val_loss:.6f}")
+    _log(f"[{model_type}] 저장: {model_path} | Best Val Loss: {best_val_loss:.6f}")
 
     return {
         "model_path": model_path,
@@ -458,6 +459,7 @@ def _train_torch(
         "version": version,
         "epochs": epochs,
         "final_loss": best_val_loss,
+        "mlflow_run_id": mlflow_run.info.run_id if mlflow_run else None,
     }
 
 
@@ -465,14 +467,15 @@ def _train_sklearn(
     model_type: str,
     draws: list[dict],
     seq_length: int,
+    _log=print,
 ) -> dict:
     """scikit-learn 모델 학습 (PyTorch와 달리 .fit() 한 줄로 끝남)"""
     use_mlflow = _setup_mlflow(model_type)
-    print(f"[{model_type}] 학습 시작...")
+    _log(f"[{model_type}] 학습 시작...")
 
     sk_model = SklearnLottoModel(model_type=model_type, seq_length=seq_length)
     X, y = sk_model.prepare_data(draws)
-    print(f"[{model_type}] 데이터셋: X={X.shape}, y={y.shape}")
+    _log(f"[{model_type}] 데이터셋: X={X.shape}, y={y.shape}")
 
     mlflow_run = None
     if use_mlflow:
@@ -520,7 +523,7 @@ def _train_sklearn(
             "total_draws": len(draws),
         }, f)
 
-    print(f"[{model_type}] 저장: {model_path} | Score: {result['score']:.4f}")
+    _log(f"[{model_type}] 저장: {model_path} | Score: {result['score']:.4f}")
 
     return {
         "model_path": model_path,
@@ -528,6 +531,7 @@ def _train_sklearn(
         "version": version,
         "epochs": 1,
         "final_loss": 1.0 - result["score"],
+        "mlflow_run_id": mlflow_run.info.run_id if mlflow_run else None,
     }
 
 
@@ -539,6 +543,7 @@ def train(
     batch_size: int = 32,
     hidden_size: int = 128,
     num_layers: int = 2,
+    log_callback=None,
 ) -> dict:
     """통합 학습 엔트리포인트"""
     if model_type not in ALL_MODELS:
@@ -551,12 +556,20 @@ def train(
             f"데이터 부족: 최소 {min_required}건 필요, 현재 {len(draws)}건"
         )
 
+    def _log(msg: str):
+        print(msg)
+        if log_callback:
+            try:
+                log_callback(msg)
+            except Exception:
+                pass
+
     if model_type in SKLEARN_MODELS:
-        return _train_sklearn(model_type, draws, seq_length)
+        return _train_sklearn(model_type, draws, seq_length, _log)
     else:
         return _train_torch(
             model_type, draws, epochs, learning_rate,
-            seq_length, batch_size, hidden_size, num_layers,
+            seq_length, batch_size, hidden_size, num_layers, _log,
         )
 
 

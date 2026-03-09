@@ -63,6 +63,9 @@ class PredictionResult(BaseModel):
     model_version: str = Field(..., description="모델 버전")
     model_type: str = Field(default="lstm", description="사용된 모델 타입")
     created_at: str = Field(default="", description="예측 생성 시각 (ISO)")
+    total_draws: int | None = Field(default=None, description="학습 데이터 총 건수")
+    data_range_start: int | None = Field(default=None, description="데이터 시작 회차")
+    data_range_end: int | None = Field(default=None, description="데이터 끝 회차")
 
 
 class TrainRequest(BaseModel):
@@ -71,6 +74,7 @@ class TrainRequest(BaseModel):
     epochs: int = Field(default=100, ge=10, le=500)
     learning_rate: float = Field(default=0.001, gt=0, lt=1)
     sequence_length: int = Field(default=10, ge=5, le=50)
+    session_id: str | None = Field(default=None, description="WebSocket 로그 세션 ID")
 
 
 class TrainResponse(BaseModel):

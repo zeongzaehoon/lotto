@@ -5,7 +5,14 @@
       "Bash(python3:*)",
       "Bash(docker run:*)",
       "Bash(docker ps:*)",
-      "Bash(docker exec:*)"
+      "Bash(docker exec:*)",
+      "Bash(find /Users/hoon/Portfolio/lotto -type d -not -path */.* -not -path */__pycache__* -not -path */node_modules*)",
+      "Bash(docker compose:*)",
+      "Bash(curl -s -u admin:admin \"http://localhost:4567/airflow/api/v1/dags/lotto_backfill/dagRuns?order_by=-execution_date&limit=1\")",
+      "Bash(wc:*)",
+      "WebSearch",
+      "Bash(npm install:*)",
+      "Bash(curl:*)"
     ]
   }
 }

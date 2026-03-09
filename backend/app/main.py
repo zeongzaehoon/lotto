@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db.mongodb import close_database
-from app.routers import lotto, prediction, stats, mlops, collection
+from app.routers import lotto, prediction, stats, mlops, collection, ws
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost").split(",")
 
@@ -38,6 +38,7 @@ app.include_router(stats.router)
 app.include_router(prediction.router)
 app.include_router(mlops.router)
 app.include_router(collection.router)
+app.include_router(ws.router)
 
 
 @app.get("/api/health")

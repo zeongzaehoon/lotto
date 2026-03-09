@@ -44,6 +44,9 @@ export interface PredictionResult {
   model_version: string;
   model_type: string;
   created_at: string;
+  total_draws?: number;
+  data_range_start?: number;
+  data_range_end?: number;
 }
 
 export interface TrainResponse {

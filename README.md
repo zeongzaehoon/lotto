@@ -6,18 +6,19 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Nginx (port 80)                       │
-│              Reverse Proxy / Entry Point                 │
-├────────┬────────┬──────────┬────────────┘
-│        │        │          │
-│   /    │ /api/  │ /airflow │ /mlflow
-│        │        │          │
-▼        ▼        ▼          ▼
-React    FastAPI  Airflow    MLflow
-:80      :8000    :8080      :5000
-         │
-         ├── MongoDB (데이터 저장)
-         └── ML Models (PyTorch / scikit-learn)
+│                    Nginx (port 80)                      │
+│              Reverse Proxy / Entry Point                │
+├────────┬────────┬──────────┬────────────┘               │
+│        │        │          │                            │
+│   /    │ /api/  │ /airflow │ /mlflow                    │
+│        │        │          │                            │
+▼        ▼        ▼          ▼                            │
+React    FastAPI  Airflow    MLflow                       │
+:80      :8000    :8080      :5000                        │
+         │                                                │
+         ├── Database (MongoDB)                           │
+         └── ML Models (PyTorch / scikit-learn)           │
+└─────────────────────────────────────────────────────────┘         
 ```
 
 ## Tech Stack

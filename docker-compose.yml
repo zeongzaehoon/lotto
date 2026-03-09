@@ -1,0 +1,179 @@
+x-airflow-common: &airflow-common
+  build:
+    context: ./airflow
+    dockerfile: Dockerfile
+  environment:
+    - AIRFLOW__CORE__EXECUTOR=${AIRFLOW__CORE__EXECUTOR}
+    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+    - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
+    - AIRFLOW__CORE__LOAD_EXAMPLES=${AIRFLOW__CORE__LOAD_EXAMPLES}
+    - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW__WEBSERVER__SECRET_KEY}
+    - AIRFLOW__WEBSERVER__BASE_URL=http://localhost/airflow
+    - AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX=True
+    - MONGODB_URL=${MONGODB_URL}
+    - MONGO_DB_NAME=${MONGO_DB_NAME}
+  user: "${AIRFLOW_UID:-50000}:0"
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+  depends_on:
+    postgres:
+      condition: service_healthy
+    mongodb:
+      condition: service_healthy
+
+services:
+  # ─── Database ────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: lotto-mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME}
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo-init/init.js:/docker-entrypoint-initdb.d/init.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "-u", "${MONGO_INITDB_ROOT_USERNAME}", "-p", "${MONGO_INITDB_ROOT_PASSWORD}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15
+    container_name: lotto-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── MLflow ──────────────────────────────────────────
+  mlflow:
+    build:
+      context: ./mlflow
+      dockerfile: Dockerfile
+    container_name: lotto-mlflow
+    restart: always
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/mlflow
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # ─── Airflow ─────────────────────────────────────────
+  airflow-init:
+    <<: *airflow-common
+    container_name: lotto-airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com || true
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: lotto-airflow-webserver
+    command: airflow webserver --port 8080
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/airflow/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: lotto-airflow-scheduler
+    command: airflow scheduler
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  # ─── Backend ─────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lotto-backend
+    restart: always
+    environment:
+      - MONGODB_URL=${MONGODB_URL}
+      - MONGO_DB_NAME=${MONGO_DB_NAME}
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - ./backend/app:/app/app
+      - ./ml:/app/ml
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+
+  # ─── Frontend ────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lotto-frontend
+    restart: always
+    depends_on:
+      - backend
+
+  # ─── Nginx Reverse Proxy ────────────────────────────
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: lotto-nginx
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_started
+      airflow-webserver:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+
+volumes:
+  mongo_data:
+  postgres_data:
+  mlflow_artifacts:
